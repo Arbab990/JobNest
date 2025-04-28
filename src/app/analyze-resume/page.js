@@ -27,34 +27,39 @@ const ResumeAnalyzer = () => {
   const [error, setError] = useState("");
 
   const handleFileUpload = (event) => {
-    setSelectedFile(event.target.files[0]);
+    const file = event.target.files[0];
+    
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        setError("Invalid file type! Please upload a PNG or JPG image.");
+        setSelectedFile(null);
+      } else {
+        setError("");
+        setSelectedFile(file);
+      }
+    }
   };
 
   const parseGeminiResponse = (responseText) => {
     try {
-      // Parse Summary
       const summaryMatch = responseText.match(/\*\*Summary:\*\*(.*?)(?=\*\*Key Points:\*\*)/s);
       const summary = summaryMatch 
         ? summaryMatch[1].trim().replace(/\n/g, ' ') 
         : "No summary available.";
   
-      // Parse Key Points
       const keyPointsMatch = responseText.match(/\*\*Key Points:\*\*(.*?)(?=\*\*Rating:\*\*)/s);
       const keyPoints = keyPointsMatch 
         ? keyPointsMatch[1]
-            .split(/\d\.\s*/)  // Split by numbered points
+            .split(/\d\.\s*/)  
             .map(point => 
-              point.replace(/^\*\*(.*?)\*\*/, '$1').trim()  // Remove bold formatting
+              point.replace(/^\*\*(.*?)\*\*/, '$1').trim()
             )
             .filter(point => point && point.length > 3)
         : ["No key points available"];
   
-      // Parse Rating
       const ratingMatch = responseText.match(/\*\*Rating:\*\*\s*(\w+)/);
       const rating = ratingMatch ? ratingMatch[1] : "Not Rated";
-  
-      console.log("Parsed Results:", { summary, keyPoints, rating });
-  
+
       return { summary, rating, keyPoints };
     } catch (err) {
       console.error("Parsing error:", err);
@@ -68,7 +73,7 @@ const ResumeAnalyzer = () => {
 
   const analyzeResume = async () => {
     if (!selectedFile) {
-      setError("Please upload a resume image!");
+      setError("Please upload a resume image first!");
       return;
     }
 
@@ -76,34 +81,30 @@ const ResumeAnalyzer = () => {
     setError("");
 
     try {
-      // Step 1: Perform OCR on the image
       const ocrResult = await Tesseract.recognize(selectedFile, "eng", {
-        logger: (info) => console.log(info), // Log OCR progress
+        logger: (info) => console.log(info),
       });
 
       const extractedText = ocrResult.data.text;
       console.log("Extracted Text:", extractedText);
 
-      // Step 2: Use Gemini API to analyze the extracted text
       const userPrompt = `
         Resume Analysis:
-        
+
         Summary: Provide a concise 2-3 sentence summary of the applicant's qualifications.
-        
+
         Key Points: List 3 notable strengths or achievements from the resume.
-        
+
         Rating: Evaluate the overall resume quality in one word (Excellent, Good, Average, Poor).
-        
+
         Resume Text:
         ${extractedText}
       `;
-      console.log("User Prompt Sent to Gemini:", userPrompt);
 
       const result = await model.generateContent(userPrompt);
       const responseText = await result.response.text();
       console.log("Gemini API Full Response:", responseText);
 
-      // Parse the response
       const parsedResult = parseGeminiResponse(responseText);
       
       setAnalysisResult(parsedResult);
@@ -155,12 +156,12 @@ const ResumeAnalyzer = () => {
                     : "Click to upload resume image"
                   }
                 </p>
-                <p className="text-xs text-gray-400">PNG, JPG or PDF (MAX. 5MB)</p>
+                <p className="text-xs text-gray-400">Only PNG or JPG (Max 5MB)</p>
               </div>
               <input 
                 type="file" 
                 className="hidden" 
-                accept="image/*"
+                accept="image/png, image/jpeg, image/jpg"
                 onChange={handleFileUpload}
               />
             </label>
